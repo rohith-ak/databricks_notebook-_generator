@@ -1,0 +1,2 @@
+# This directory is where generated .ipynb notebooks are saved at runtime.
+# The directory is created automatically by the devops_node if it does not exist.

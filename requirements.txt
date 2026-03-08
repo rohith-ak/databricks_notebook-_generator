@@ -1,0 +1,22 @@
+# Core LangChain / LangGraph
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# FastAPI backend
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+
+# Streamlit frontend
+streamlit>=1.36.0
+
+# Notebook generation
+nbformat>=5.10.0
+
+# HTTP client (used by Streamlit to call the API)
+requests>=2.32.0
+
+# Environment variable management
+python-dotenv>=1.0.0
