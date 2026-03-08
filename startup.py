@@ -17,20 +17,32 @@ import sys
 import subprocess
 import signal
 import time
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("Startup")
 
 # Load .env file from the project root (if it exists)
 load_dotenv(Path(__file__).parent / ".env")
 
 # Validate API key presence
 if not os.getenv("OPENAI_API_KEY"):
-    print(
-        "[startup] WARNING: OPENAI_API_KEY is not set in environment or .env file.\n"
-        "          Requests to /generate will fail until you set it.\n"
-        "          Either set it in your OS environment or create a .env file:\n"
-        "          OPENAI_API_KEY=sk-...\n"
+    logger.warning(
+        "OPENAI_API_KEY is not set in environment or .env file. "
+        "Requests to /generate will fail until you set it."
     )
+else:
+    logger.info("OPENAI_API_KEY found in environment.")
+
+model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
+logger.info(f"Model configured: {model_name}")
 
 # Determine Python executable path (handles venv)
 python_exe = sys.executable
@@ -50,26 +62,26 @@ frontend_cmd = [
     "--server.port", "8501",
 ]
 
-print("[startup] Starting FastAPI backend on http://localhost:8000 ...")
+logger.info("Starting FastAPI backend on http://localhost:8000 ...")
 backend_proc = subprocess.Popen(backend_cmd)
 
 # Give the backend a moment to initialise before the frontend tries to connect
 time.sleep(2)
 
-print("[startup] Starting Streamlit frontend on http://localhost:8501 ...")
+logger.info("Starting Streamlit frontend on http://localhost:8501 ...")
 frontend_proc = subprocess.Popen(frontend_cmd)
 
-print("[startup] Both services running. Press Ctrl-C to stop.")
+logger.info("Both services running. Press Ctrl-C to stop.")
 
 
 def _shutdown(sig, frame):  # noqa: ANN001
     """Gracefully terminate both child processes on Ctrl-C."""
-    print("\n[startup] Shutting down...")
+    logger.info("Shutting down...")
     backend_proc.terminate()
     frontend_proc.terminate()
     backend_proc.wait()
     frontend_proc.wait()
-    print("[startup] All services stopped.")
+    logger.info("All services stopped.")
     sys.exit(0)
 
 

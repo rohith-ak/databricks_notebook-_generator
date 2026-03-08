@@ -4,6 +4,11 @@ Each constant is fed as the system message to the LLM inside its corresponding n
 Enhanced versions of the original prompt files stored in /prompts.
 """
 
+import logging
+
+logger = logging.getLogger("AgentPipeline")
+logger.info("Loading agent system prompts...")
+
 # ---------------------------------------------------------------------------
 # Product Manager – Requirements Analyst
 # Reads raw user input and produces a structured, cell-by-cell execution plan.

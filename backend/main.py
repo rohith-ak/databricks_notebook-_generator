@@ -12,9 +12,10 @@ Run with:
 
 import os
 import uuid
+import logging
 import threading
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
@@ -23,6 +24,8 @@ from pydantic import BaseModel, Field
 
 # The compiled LangGraph workflow
 from .graph import run_pipeline
+
+logger = logging.getLogger("AgentPipeline")
 
 # ---------------------------------------------------------------------------
 # App initialisation
@@ -100,6 +103,8 @@ class JobStatusResponse(BaseModel):
     revision_count: int = 0
     final_notebook_path: str = ""
     error: str = ""
+    agent_logs: list = []             # structured log entries per agent
+    total_tokens: dict = {}           # cumulative token usage
 
 
 # ---------------------------------------------------------------------------
@@ -110,18 +115,19 @@ def _run_job(job_id: str, requirements: str, openai_api_key: str = "") -> None:
     """
     Execute the LangGraph pipeline in a background thread.
     Updates _job_store with the result or error on completion.
-    The openai_api_key is passed directly into the pipeline state and
-    never logged, persisted, or leaked.
     """
+    logger.info(f"Job {job_id}: Starting pipeline...")
     try:
         final_state = run_pipeline(requirements, openai_api_key=openai_api_key)
         with _job_store_lock:
             _job_store[job_id]["status"] = "done"
             _job_store[job_id]["result"] = final_state
+        logger.info(f"Job {job_id}: Pipeline completed successfully.")
     except Exception as exc:  # noqa: BLE001
         with _job_store_lock:
             _job_store[job_id]["status"] = "error"
             _job_store[job_id]["error"] = str(exc)
+        logger.error(f"Job {job_id}: Pipeline FAILED — {exc}", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +223,8 @@ def get_job_status(job_id: str) -> JobStatusResponse:
         is_approved=result.get("is_approved", False),
         revision_count=result.get("revision_count", 0),
         final_notebook_path=result.get("final_notebook_path", ""),
+        agent_logs=result.get("agent_logs", []),
+        total_tokens=result.get("total_tokens", {}),
     )
 
 

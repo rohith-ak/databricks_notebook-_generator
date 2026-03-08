@@ -19,6 +19,8 @@ Graph execution flow:
 
 from langgraph.graph import StateGraph, START, END
 
+import logging
+
 from .state import NotebookGeneratorState
 from .agents import (
     supervisor_node,
@@ -27,6 +29,8 @@ from .agents import (
     senior_architect_node,
     devops_node,
 )
+
+logger = logging.getLogger("AgentPipeline")
 
 # ---------------------------------------------------------------------------
 # Node names – kept as constants to avoid typos in edge definitions
@@ -64,6 +68,8 @@ def build_graph() -> StateGraph:
     Returns a compiled Runnable that accepts an initial state dict and
     streams / invokes the full pipeline to completion.
     """
+    logger.info("Building agent workflow graph...")
+
     graph = StateGraph(NotebookGeneratorState)
 
     # -- Register all nodes --------------------------------------------------
@@ -98,6 +104,9 @@ def build_graph() -> StateGraph:
     graph.add_edge(SENIOR_ARCHITECT, SUPERVISOR)
     graph.add_edge(DEVOPS, END)  # pipeline complete after notebook is written
 
+    logger.info("Workflow graph built successfully")
+    logger.info("   Flow: START -> Supervisor -> [PM | DE | SA | DevOps] -> ... -> END")
+
     return graph.compile()
 
 
@@ -121,6 +130,15 @@ def run_pipeline(requirements: str, openai_api_key: str = "") -> NotebookGenerat
     Returns:
         The final NotebookGeneratorState after the graph reaches END.
     """
+    import time as _time
+
+    logger.info("=" * 70)
+    logger.info("PIPELINE START")
+    logger.info(f"   Requirement: {requirements[:120]}...")
+    logger.info("=" * 70)
+
+    pipeline_start = _time.time()
+
     initial_state: NotebookGeneratorState = {
         "requirements": requirements,
         "plan": "",
@@ -132,7 +150,23 @@ def run_pipeline(requirements: str, openai_api_key: str = "") -> NotebookGenerat
         "next_agent": "",
         "status_log": ["Pipeline started."],
         "openai_api_key": openai_api_key,
+        "agent_logs": [],
+        "total_tokens": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
     }
 
     final_state = workflow.invoke(initial_state)
+
+    pipeline_elapsed = _time.time() - pipeline_start
+    total_tokens = final_state.get("total_tokens", {})
+
+    logger.info("=" * 70)
+    logger.info("PIPELINE COMPLETE")
+    logger.info(f"   Total time:            {pipeline_elapsed:.2f}s")
+    logger.info(f"   Total prompt tokens:    {total_tokens.get('prompt_tokens', 0)}")
+    logger.info(f"   Total completion tokens:{total_tokens.get('completion_tokens', 0)}")
+    logger.info(f"   Total tokens used:      {total_tokens.get('total_tokens', 0)}")
+    logger.info(f"   Revisions performed:    {final_state.get('revision_count', 0)}")
+    logger.info(f"   Notebook path:          {final_state.get('final_notebook_path', 'N/A')}")
+    logger.info("=" * 70)
+
     return final_state
